@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nommez cet Emoji</title>
+  <style>
+    :root{--bg:#f8fafc;--card:#ffffff;--muted:#64748b;--accent:#06b6d4;}
+    html,body,#root{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+    body{background:linear-gradient(180deg,#f8fafc,#ffffff);display:flex;align-items:flex-start;justify-content:center;padding:28px;color:#0f172a;}
+    .card{width:100%;max-width:980px;background:var(--card);border-radius:14px;box-shadow:0 8px 30px rgba(2,6,23,0.08);padding:22px;}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+    h1{font-size:20px;margin:0;}
+    .muted{color:var(--muted);font-size:13px;}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:18px;}
+    .area{background:#fbfdff;border-radius:10px;padding:14px;}
+    .emoji{font-size:72px;line-height:1;margin-bottom:6px;}
+    input[type="text"]{width:100%;padding:12px;border-radius:10px;border:1px solid #e6eef6;outline:none;font-size:15px;}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:0;background:var(--accent);color:white;font-weight:600;cursor:pointer;}
+    .btn.ghost{background:#f1f5f9;color:#0f172a;font-weight:600;border:1px solid #e6eef6;}
+    .controls{display:flex;gap:8px;margin-top:10px;}
+    .small{font-size:13px;color:var(--muted);}
+    .history{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+    .histItem{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid #eef2f7;background:white;}
+    footer{margin-top:14px;font-size:13px;color:var(--muted);text-align:center;}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;}
+    .sidebar{display:flex;flex-direction:column;gap:12px;}
+    input[type="range"]{width:100%;}
+    select{padding:8px;border-radius:8px;border:1px solid #e6eef6;}
+    .stats{font-weight:700;}
+    .past-games{max-height:320px;overflow:auto;padding-right:6px;border:1px solid #eef2f7;border-radius:8px;padding:8px;background:#fff;}
+    @media (max-width:900px){.grid{grid-template-columns:1fr;}.emoji{font-size:56px}}
+  </style>
+</head>
+<body>
+  <div class="card" id="app">
+    <header>
+      <div>
+        <h1>Nommez cet emoji</h1>
+        <div class="muted">Les jeux terminés sont stockés dans localStorage et peuvent être exportés au format CSV ou JSON.</div>
+      </div>
+      <div class="muted">LocalStorage key: <code>name_that_emoji_games_v1</code></div>
+    </header>
+
+    <div class="grid">
+      <main class="area">
+        <div class="small">Round <span id="roundNumber">0</span> / <span id="roundTotal">8</span></div>
+        <div class="emoji" id="emojiDisplay">🙂</div>
+        <div class="small" id="hintText">Nommez cet emoji</div>
+
+        <div style="margin-top:12px">
+          <input type="text" id="guessInput" placeholder="Tapez votre réponse (appuyez sur Entrée pour valider)" />
+          <div class="controls">
+            <button class="btn" id="submitBtn">Submit</button>
+            <button class="btn ghost" id="skipBtn">Skip</button>
+            <button class="btn ghost" id="revealBtn">Reveal</button>
+            <button class="btn ghost" id="endBtn">End</button>
+          </div>
+        </div>
+
+        <div class="history" id="roundHistory"></div>
+
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:space-between;">
+          <div class="small">Score: <strong id="score">0</strong></div>
+          <div class="small">Le meilleur de tous les jeux: <strong id="bestScore">0</strong></div>
+        </div>
+      </main>
+
+      <aside class="sidebar">
+        <div class="area">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-weight:700">Settings</div>
+            <div class="small">Tours & temps</div>
+          </div>
+
+          <div>
+            <label>Tours</label>
+            <input id="roundRange" type="range" min="3" max="20" value="8" />
+            <div class="small">Tours : <span id="roundValue">8</span></div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <label>Temps par tour (secondes)</label>
+            <input id="timeRange" type="range" min="5" max="30" value="12" />
+            <div class="small">Secondes : <span id="timeValue">12</span></div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <label>Difficulté</label>
+            <select id="difficultySelect">
+              <option value="easy">Facile (partial 3+ char)</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Difficile (full match)</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn" id="startBtn">Start Game</button>
+            <button class="btn ghost" id="exportAllBtn">Export All</button>
+          </div>
+
+        </div>
+
+        <div class="area">
+          <div style="font-weight:700;margin-bottom:8px;">Past Games</div>
+          <div class="past-games" id="pastGamesList"></div>
+
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn ghost" id="downloadCSVBtn">Download CSV</button>
+            <button class="btn ghost" id="downloadJSONBtn">Download JSON</button>
+            <button class="btn ghost" id="clearStorageBtn">Clear Storage</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Tip: You can edit the emoji pool inside the file to add more items. Play, export, and share!</footer>
+  </div>
+
+  <script>
+    // Emoji pool (name = simplified official name)
+    const EMOJIS = [
+      {char:'😀', name:'drôle'},
+      {char:'😂', name:'hilarant'},
+      {char:'😍', name:'adorable'},
+      {char:'🤔', name:'pensif'},
+      {char:'😴', name:'fatigué'},
+      {char:'😎', name:'cool'},
+      {char:'🤯', name:'stupéfiant'},
+      {char:'🤢', name:'dégoûtant'},
+      {char:'🤡', name:'stupide'},
+      {char:'👻', name:'fantôme'},
+      {char:'👽', name:'extraterrestre'},
+      {char:'🤖', name:'robot'},
+      {char:'🐶', name:'chien'},
+      {char:'🐱', name:'chat'},
+      {char:'🦄', name:'licorne'},
+      {char:'🐢', name:'tortue'},
+      {char:'🦊', name:'renard'},
+      {char:'🐼', name:'panda'},
+      {char:'🍎', name:'pomme'},
+      {char:'🍕', name:'pizza'},
+      {char:'🍔', name:'hamburger'},
+      {char:'🍩', name:'doughnut'},
+      {char:'⚽', name:'ballon de foot'},
+      {char:'🏀', name:'ballon de basket'},
+      {char:'🎸', name:'guitare'},
+      {char:'🎧', name:'écouteurs'},
+      {char:'🚗', name:'voiture'},
+      {char:'✈️', name:'avion'},
+      {char:'🚀', name:'fusée'},
+      {char:'🏰', name:'château'},
+      {char:'🌈', name:'arc en ciel'},
+      {char:'🔥', name:'feu'},
+      {char:'💡', name:'ampoule'},
+      {char:'💯', name:'cent points'},
+      {char:'❤️', name:'amour'},
+      {char:'✨', name:'étincelles'}
+    ];
+
+    const STORAGE_KEY = 'name_that_emoji_games_v1';
+
+    function $(id){ return document.getElementById(id); }
+    function nowISO(){ return (new Date()).toISOString(); }
+    function normalize(t){ return (t||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim(); }
+
+    // App state
+    let game = null; // {id, startedAt, rounds, timePerRound, difficulty, pool, entries, currentIndex, score}
+    let allGames = loadAllGames();
+
+    function loadAllGames(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):[]; }catch(e){return[]} }
+    function saveAllGames(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(allGames)); renderPastGames(); }
+
+    // UI helpers
+    function shuffle(a){ return a.slice().sort(()=>Math.random()-0.5); }
+
+    function startGame(){
+      const rounds = parseInt($('roundRange').value,10);
+      const timePerRound = parseInt($('timeRange').value,10);
+      const difficulty = $('difficultySelect').value;
+      const pool = shuffle(EMOJIS).slice(0, rounds);
+      game = {
+        id: 'game_'+Date.now(),
+        startedAt: nowISO(),
+        rounds, timePerRound, difficulty,
+        pool, entries: [], currentIndex:0, score:0
+      };
+      renderGameUI();
+      nextRound();
+    }
+
+    function finishGame(){
+      if(!game) return;
+      game.endedAt = nowISO();
+      allGames.push(game);
+      saveAllGames();
+      alert('Game complete! Score: '+game.score+'/'+game.rounds);
+      game = null;
+      renderGameUI();
+    }
+
+    function nextRound(){
+      if(!game) return;
+      $('roundNumber').textContent = game.currentIndex+1;
+      $('roundTotal').textContent = game.rounds;
+      const current = game.pool[game.currentIndex];
+      $('emojiDisplay').textContent = current.char;
+      $('hintText').textContent = 'Nommez cet emoji';
+      $('guessInput').value = '';
+      $('guessInput').disabled = false;
+      $('guessInput').focus();
+    }
+
+    function submitGuess(){
+      if(!game) return alert('Start a game first');
+      const v = $('guessInput').value.trim();
+      const current = game.pool[game.currentIndex];
+      const correctName = current.name;
+      const normalizedCorrect = normalize(correctName);
+      const normalizedGuess = normalize(v);
+      let isCorrect = false;
+      if(game.difficulty === 'hard'){
+        isCorrect = normalizedGuess === normalizedCorrect;
+      } else if(game.difficulty === 'medium'){
+        isCorrect = normalizedGuess && (normalizedGuess === normalizedCorrect || normalizedCorrect.includes(normalizedGuess) || (normalizedGuess.length>=3 && normalizedCorrect.startsWith(normalizedGuess)));
+      } else {
+        isCorrect = normalizedGuess && (normalizedGuess.length>=3 && normalizedCorrect.includes(normalizedGuess));
+      }
+
+      const entry = {
+        round: game.currentIndex+1,
+        emoji: current.char,
+        guess: v,
+        correctAnswer: correctName,
+        isCorrect: !!isCorrect,
+        timestamp: nowISO()
+      };
+      game.entries.push(entry);
+      if(isCorrect) game.score += 1;
+      game.currentIndex += 1;
+      renderRoundHistory();
+      if(game.currentIndex >= game.rounds) finishGame(); else nextRound();
+    }
+
+    function skipRound(){
+      if(!game) return;
+      const current = game.pool[game.currentIndex];
+      const entry = {
+        round: game.currentIndex+1,
+        emoji: current.char,
+        guess: '',
+        correctAnswer: current.name,
+        isCorrect: false,
+        timestamp: nowISO()
+      };
+      game.entries.push(entry);
+      game.currentIndex += 1;
+      renderRoundHistory();
+      if(game.currentIndex >= game.rounds) finishGame(); else nextRound();
+    }
+
+    function reveal(){
+      if(!game) return alert('Answer: '+game.pool[game.currentIndex].name);
+    }
+
+    function endEarly(){
+      if(!game) return;
+      if(confirm('End game early? Progress will be saved as completed.')){
+        finishGame();
+      }
+    }
+
+    // Rendering helpers
+    function renderGameUI(){
+      $('score').textContent = game?game.score:0;
+      $('bestScore').textContent = allGames.reduce((m,g)=>Math.max(m,g.score||0),0);
+      renderRoundHistory();
+      renderPastGames();
+      $('roundValue').textContent = $('roundRange').value;
+      $('timeValue').textContent = $('timeRange').value;
+    }
+
+    function renderRoundHistory(){
+      const container = $('roundHistory');
+      container.innerHTML = '';
+      if(!game || !game.entries.length) return;
+      game.entries.slice(-6).reverse().forEach(e=>{
+        const div = document.createElement('div');
+        div.className = 'histItem';
+        div.innerHTML = '<div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px">'+e.emoji+'</div><div><div style="font-weight:700">'+(e.guess||'<em style="color:#94a3b8">(no guess)</em>')+'</div><div class="small">'+(e.isCorrect? 'Correct' : 'Wrong')+'</div></div></div><div class="small">'+e.correctAnswer+'</div>';
+        container.appendChild(div);
+      });
+    }
+
+    function renderPastGames(){
+      const list = $('pastGamesList');
+      list.innerHTML = '';
+      if(!allGames.length){ list.innerHTML = '<div class="small">No saved games yet.</div>'; return; }
+      allGames.slice().reverse().forEach(g=>{
+        const el = document.createElement('div');
+        el.style.padding='8px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.marginBottom='6px';
+        el.innerHTML = '<div style="display:flex;justify-content:space-between"><div style="font-weight:700">'+g.id+' <span style="font-weight:400;color:#64748b;font-size:12px">('+g.startedAt.split('T')[0]+')</span></div><div class="small">Score: '+(g.score||0)+' / '+(g.rounds||g.entries.length)+'</div></div><div class="small" style="margin-top:6px">'+g.pool.map(p=>p.char).join(' ')+'</div>';
+        const row = document.createElement('div'); row.style.display='flex'; row.style.gap='6px'; row.style.marginTop='8px';
+        const view = document.createElement('button'); view.className='btn ghost'; view.textContent='View'; view.onclick=()=> viewGame(g.id);
+        const csv = document.createElement('button'); csv.className='btn ghost'; csv.textContent='CSV'; csv.onclick=()=> downloadSingleCSV(g.id);
+        const jsonBtn = document.createElement('button'); jsonBtn.className='btn ghost'; jsonBtn.textContent='JSON'; jsonBtn.onclick=()=> downloadSingleJSON(g.id);
+        const del = document.createElement('button'); del.className='btn ghost'; del.textContent='Delete'; del.onclick=()=>{ if(confirm('Delete this game?')){ allGames = allGames.filter(x=>x.id!==g.id); saveAllGames(); } };
+        row.appendChild(view); row.appendChild(csv); row.appendChild(jsonBtn); row.appendChild(del);
+        el.appendChild(row);
+        list.appendChild(el);
+      });
+    }
+
+    function viewGame(id){
+      const g = allGames.find(x=>x.id===id); if(!g) return alert('Not found');
+      const lines = ['Game: '+g.id, 'Started: '+g.startedAt, 'Ended: '+(g.endedAt||'—'), 'Score: '+(g.score||0), '', 'Rounds:'];
+      g.entries.forEach(e=> lines.push(e.round+'. '+e.emoji+' — Guess: "'+e.guess+'" — Answer: "'+e.correctAnswer+'" — '+(e.isCorrect? 'Correct':'Wrong')));
+      alert(lines.join('\n'));
+    }
+
+    // Exports
+    function gamesToCSV(games){
+      const rows = [['gameId','startedAt','endedAt','round','emoji','guess','correctAnswer','isCorrect','timestamp']];
+      games.forEach(g=>{ (g.entries||[]).forEach(e=> rows.push([g.id,g.startedAt,g.endedAt||'',e.round,e.emoji,'"'+(e.guess||'')+'"','"'+(e.correctAnswer||'')+'"',e.isCorrect,e.timestamp])); });
+      return rows.map(r=> r.join(',')).join('\n');
+    }
+    function download(filename, content, mime){ const blob = new Blob([content], {type: mime||'text/plain'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },500); }
+
+    function downloadAllJSON(){ download('name_that_emoji_games.json', JSON.stringify(allGames, null, 2), 'application/json'); }
+    function downloadAllCSV(){ download('name_that_emoji_games.csv', gamesToCSV(allGames), 'text/csv'); }
+    function downloadSingleJSON(id){ const g = allGames.find(x=>x.id===id); if(!g) return alert('Not found'); download('game_'+id+'.json', JSON.stringify(g, null, 2), 'application/json'); }
+    function downloadSingleCSV(id){ const g = allGames.find(x=>x.id===id); if(!g) return alert('Not found'); download('game_'+id+'.csv', gamesToCSV([g]), 'text/csv'); }
+
+    function saveAllGames(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(allGames)); renderPastGames(); }
+    function loadAllGamesFromStorage(){ allGames = loadAllGames(); renderPastGames(); }
+
+    // Wire up events
+    window.addEventListener('load', ()=>{
+      $('startBtn').addEventListener('click', ()=> startGame());
+      $('submitBtn').addEventListener('click', ()=> submitGuess());
+      $('skipBtn').addEventListener('click', ()=> skipRound());
+      $('revealBtn').addEventListener('click', ()=> reveal());
+      $('endBtn').addEventListener('click', ()=> endEarly());
+      $('exportAllBtn').addEventListener('click', ()=> { const resp = prompt('Type "csv" or "json" to export all games. Leave blank to cancel.'); if(!resp) return; if(resp.toLowerCase()==='csv') downloadAllCSV(); else if(resp.toLowerCase()==='json') downloadAllJSON(); else alert('Unknown format'); });
+      $('downloadCSVBtn').addEventListener('click', ()=> downloadAllCSV());
+      $('downloadJSONBtn').addEventListener('click', ()=> downloadAllJSON());
+      $('clearStorageBtn').addEventListener('click', ()=> { if(confirm('Clear all stored games? This cannot be undone.')){ allGames=[]; saveAllGames(); alert('Cleared.'); } });
+      $('guessInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') $('submitBtn').click(); });
+      $('roundRange').addEventListener('input', ()=>{ $('roundValue').textContent = $('roundRange').value; });
+      $('timeRange').addEventListener('input', ()=>{ $('timeValue').textContent = $('timeRange').value; });
+      // init
+      renderGameUI();
+    });
+
+  </script>
+</body>
+</html>
